@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BMI Calculator</title>
+  <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #f4f6f8;
+      --card: #ffffff;
+      --text: #1a1d21;
+      --muted: #5c6670;
+      --accent: #2563eb;
+      --accent-hover: #1d4ed8;
+      --border: #e2e8f0;
+      --ok: #059669;
+      --warn: #d97706;
+      --bad: #dc2626;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0f1419;
+        --card: #1a222c;
+        --text: #e8eef4;
+        --muted: #9aa7b5;
+        --accent: #3b82f6;
+        --accent-hover: #60a5fa;
+        --border: #2a3542;
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 1.5rem;
+    }
+    .card {
+      width: min(100%, 420px);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+    }
+    h1 {
+      margin: 0 0 0.35rem;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+    .sub {
+      margin: 0 0 1.5rem;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    .field { margin-bottom: 1rem; }
+    .row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 0.5rem;
+      align-items: stretch;
+    }
+    input[type="number"], select {
+      width: 100%;
+      padding: 0.7rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: transparent;
+      color: var(--text);
+      font-size: 1rem;
+    }
+    input:focus, select:focus {
+      outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
+      border-color: var(--accent);
+    }
+    select { min-width: 5.5rem; }
+    button {
+      width: 100%;
+      margin-top: 0.25rem;
+      padding: 0.85rem 1rem;
+      border: none;
+      border-radius: 10px;
+      background: var(--accent);
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button:hover { background: var(--accent-hover); }
+    .result {
+      margin-top: 1.25rem;
+      padding: 1rem 1.1rem;
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      background: color-mix(in srgb, var(--bg) 70%, transparent);
+      min-height: 5.5rem;
+    }
+    .result-label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+      margin-bottom: 0.25rem;
+    }
+    .bmi-value {
+      font-size: 2rem;
+      font-weight: 750;
+      line-height: 1.1;
+    }
+    .category {
+      margin-top: 0.35rem;
+      font-weight: 650;
+    }
+    .hint {
+      margin-top: 0.45rem;
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+    .placeholder { color: var(--muted); }
+    .error {
+      margin-top: 0.75rem;
+      color: var(--bad);
+      font-size: 0.9rem;
+      display: none;
+    }
+    .error.show { display: block; }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>BMI Calculator</h1>
+    <p class="sub">Enter height and weight — BMI updates as you type (or press Calculate).</p>
+
+    <form id="bmi-form" novalidate>
+      <div class="field">
+        <label for="height">Height</label>
+        <div class="row">
+          <input id="height" name="height" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 170" autocomplete="off" />
+          <select id="height-unit" aria-label="Height unit">
+            <option value="cm" selected>cm</option>
+            <option value="in">in</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="weight">Weight</label>
+        <div class="row">
+          <input id="weight" name="weight" type="number" min="0" step="any" inputmode="decimal" placeholder="e.g. 65" autocomplete="off" />
+          <select id="weight-unit" aria-label="Weight unit">
+            <option value="kg" selected>kg</option>
+            <option value="lb">lb</option>
+          </select>
+        </div>
+      </div>
+
+      <button type="submit">Calculate BMI</button>
+      <p id="error" class="error" role="alert"></p>
+    </form>
+
+    <div id="result" class="result" aria-live="polite">
+      <div class="result-label">Your BMI</div>
+      <div class="bmi-value placeholder" id="bmi-value">—</div>
+      <div class="category placeholder" id="category">Enter height and weight</div>
+      <p class="hint" id="hint"></p>
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      const form = document.getElementById("bmi-form");
+      const error = document.getElementById("error");
+      const bmiValue = document.getElementById("bmi-value");
+      const categoryEl = document.getElementById("category");
+      const hintEl = document.getElementById("hint");
+      const heightInput = document.getElementById("height");
+      const weightInput = document.getElementById("weight");
+      const heightUnit = document.getElementById("height-unit");
+      const weightUnit = document.getElementById("weight-unit");
+
+      function toMetric(height, hu, weight, wu) {
+        var meters = hu === "cm" ? height / 100 : height * 0.0254;
+        var kg = wu === "kg" ? weight : weight * 0.45359237;
+        return { meters: meters, kg: kg };
+      }
+
+      function categorize(bmi) {
+        if (bmi < 18.5) {
+          return { label: "Underweight", color: "var(--warn)", hint: "BMI under 18.5 (WHO adult categories)." };
+        }
+        if (bmi < 25) {
+          return { label: "Normal weight", color: "var(--ok)", hint: "BMI 18.5–24.9 (WHO adult categories)." };
+        }
+        if (bmi < 30) {
+          return { label: "Overweight", color: "var(--warn)", hint: "BMI 25–29.9 (WHO adult categories)." };
+        }
+        return { label: "Obesity", color: "var(--bad)", hint: "BMI 30 or higher (WHO adult categories)." };
+      }
+
+      function resetResult(message) {
+        bmiValue.textContent = "—";
+        bmiValue.classList.add("placeholder");
+        categoryEl.textContent = message || "Enter height and weight";
+        categoryEl.classList.add("placeholder");
+        categoryEl.style.color = "";
+        hintEl.textContent = "";
+      }
+
+      function calculate(showEmptyError) {
+        error.classList.remove("show");
+        error.textContent = "";
+
+        var heightRaw = heightInput.value.trim();
+        var weightRaw = weightInput.value.trim();
+
+        if (heightRaw === "" || weightRaw === "") {
+          resetResult("Enter height and weight");
+          if (showEmptyError) {
+            error.textContent = "Please enter both height and weight.";
+            error.classList.add("show");
+          }
+          return;
+        }
+
+        var height = Number(heightRaw);
+        var weight = Number(weightRaw);
+
+        if (!isFinite(height) || !isFinite(weight) || height <= 0 || weight <= 0) {
+          resetResult("Invalid values");
+          error.textContent = "Please enter positive numbers for height and weight.";
+          error.classList.add("show");
+          return;
+        }
+
+        var metric = toMetric(height, heightUnit.value, weight, weightUnit.value);
+        if (metric.meters <= 0) {
+          resetResult("Invalid height");
+          error.textContent = "Height must be greater than zero.";
+          error.classList.add("show");
+          return;
+        }
+
+        var bmi = metric.kg / (metric.meters * metric.meters);
+        var rounded = Math.round(bmi * 10) / 10;
+        var info = categorize(bmi);
+
+        bmiValue.textContent = rounded.toFixed(1);
+        bmiValue.classList.remove("placeholder");
+        categoryEl.textContent = info.label;
+        categoryEl.classList.remove("placeholder");
+        categoryEl.style.color = info.color;
+        hintEl.textContent = info.hint;
+      }
+
+      form.addEventListener("submit", function (event) {
+        event.preventDefault();
+        calculate(true);
+      });
+
+      ["input", "change"].forEach(function (evt) {
+        heightInput.addEventListener(evt, function () { calculate(false); });
+        weightInput.addEventListener(evt, function () { calculate(false); });
+        heightUnit.addEventListener(evt, function () { calculate(false); });
+        weightUnit.addEventListener(evt, function () { calculate(false); });
+      });
+    })();
+  </script>
+</body>
+</html>
